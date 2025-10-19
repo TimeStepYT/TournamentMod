@@ -51,7 +51,7 @@ public:
     std::atomic_bool isConnecting;
     std::atomic_bool isConnected;
     std::atomic_bool isRunning;
-    geode::Ref<ConnectionLabel> m_connectionLabel = nullptr;
+    ConnectionLabel* m_connectionLabel = nullptr;
 
     void connect();
     void connect(std::function<void()> callback);

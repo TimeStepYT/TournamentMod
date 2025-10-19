@@ -11,7 +11,7 @@ public:
     CREATE_FUNC(ConnectionLabel);
 
 protected:
-    cocos2d::CCLabelBMFont* m_connectedLabel;
+    geode::Ref<cocos2d::CCLabelBMFont> m_connectedLabel;
     bool m_connected = false;
     std::mutex m_connectedChangedMutex;
 };
