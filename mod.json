@@ -10,5 +10,20 @@
 	"name": "TournamentMod",
 	"version": "v1.0.0",
 	"developer": "TimeStepYT",
-	"description": "Client for the tournament"
+	"description": "Client for the tournament",
+
+	"settings": {
+		"server-url": {
+			"type": "string",
+			"default": "localhost",
+			"name": "URL",
+			"match": "[A-Za-z0-9\\.]+",
+			"filter": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_"
+		},
+		"server-port": {
+			"type": "int",
+			"default": 19992,
+			"name": "Port"
+		}
+	}
 }

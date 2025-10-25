@@ -1,81 +1,85 @@
 #include <Geode/Geode.hpp>
 
-#include <Geode/modify/PlayLayer.hpp>
-#include <Geode/modify/MenuLayer.hpp>
-#include <Geode/modify/GameManager.hpp>
+#include <Geode/utils/cocos.hpp>
+
 #include "../include/NetworkManager.hpp"
 #include "../include/ConnectionLabel.hpp"
-#include "../include/PointsManager.hpp"
+#include "../include/hooks.hpp"
 
 using namespace geode::prelude;
 
-/*
-class $modify(MyPlayLayer, PlayLayer) {
-    bool init(GJGameLevel * gameLevel, bool useReplay, bool dontCreateObjects) {
-        if (!PlayLayer::init(gameLevel, useReplay, dontCreateObjects))
-            return false;
+void MyEndLevelLayer::showLayer(bool p0) {
+    EndLevelLayer::showLayer(p0);
 
-        auto savedLabel = PointsManager::get()->getLabel();
-        auto newLabel = CCLabelBMFont::create("", "bigFont.fnt");
-        newLabel->setAnchorPoint(ccp(1, 0));
-        newLabel->setPositionX(this->getContentWidth());
-        newLabel->setPositionY(0);
-        newLabel->setScale(0.5f);
+    auto& nm = NetworkManager::get();
+    if (!nm.isConnected || !nm.isLoggedIn)
+        return;
 
-        constexpr uint8_t halfByte = 255 * 0.5;
-        newLabel->setOpacity(halfByte);
+    nm.send(fmt::format("/completed {}", this->m_playLayer->m_level->m_levelID));
 
-        PointsManager::get()->setLabel(newLabel);
+    Loader::get()->queueInMainThread([this]() {
+        auto buttonMenu = this->m_mainLayer->getChildByType<CCMenu>(0);
+        auto completeMessage = this->m_mainLayer->getChildByType<TextArea>(0);
 
-        this->addChild(newLabel);
+        if (buttonMenu)
+            buttonMenu->setVisible(false);
 
-        return true;
-    }
+        if (completeMessage)
+            completeMessage->setPositionY(completeMessage->getPositionY() - 9);
+        });
+}
+void MyEndLevelLayer::onReplay(CCObject* sender) {
+    auto& nm = NetworkManager::get();
+    if (nm.isConnected && nm.isLoggedIn)
+        return;
 
-    void showEndLayer() {
-        this->receivePoints();
-        PlayLayer::showEndLayer();
-    }
+    EndLevelLayer::onReplay(sender);
+}
+void MyEndLevelLayer::onMenu(CCObject* sender) {
+    auto& nm = NetworkManager::get();
+    if (nm.isConnected && nm.isLoggedIn)
+        return;
 
-    void receivePoints() {
-        float deathPercent = this->getCurrentPercent();
-        PointsManager::get()->setLastDeath(deathPercent);
+    EndLevelLayer::onMenu(sender);
+}
 
-        float points = PointsManager::get()->getPoints();
-        std::string pointsString = fmt::format("{} Points", static_cast<int>(points));
+void MyEndLevelLayer::onEdit(CCObject* sender) {
+    auto& nm = NetworkManager::get();
+    if (nm.isConnected && nm.isLoggedIn)
+        return;
 
-        CCLabelBMFont* label = PointsManager::get()->getLabel();
+    EndLevelLayer::onEdit(sender);
+}
 
-        if (label) {
-            label->setString(pointsString.c_str());
-        }
-    }
+bool MyMenuLayer::init() {
+    if (!MenuLayer::init())
+        return false;
 
-    void destroyPlayer(PlayerObject * playerObject, GameObject * gameObject) {
-        PlayLayer::destroyPlayer(playerObject, gameObject);
+    auto cl = ConnectionLabel::create();
+    cl->setAnchorPoint(ccp(1, 1));
+    cl->setPositionX(this->getContentWidth());
+    cl->setPositionY(this->getContentHeight());
+    this->addChild(cl);
 
-        if (gameObject == this->m_anticheatSpike)
-            return;
-
-        this->receivePoints();
-    }
-};
-*/
-class $modify(MyMenuLayer, MenuLayer) {
-    bool init() {
-        if (!MenuLayer::init())
-            return false;
-
-
-        auto cl = ConnectionLabel::create();
-        cl->setPositionX(this->getContentWidth());
-        cl->setPositionY(this->getContentHeight());
-        this->addChild(cl);
-
-        NetworkManager::get().connect([](){
-            NetworkManager::get().send("/getclients");
+    NetworkManager::get().connect([]() {
+        NetworkManager::get().send("/getclients");
         });
 
+    return true;
+}
+
+bool MyLevelInfoLayer::init(GJGameLevel* level, bool challenge) {
+    if (!LevelInfoLayer::init(level, challenge)) return false;
+
+    if (!this->m_fields->forced)
         return true;
-    }
-};
+
+    return true;
+}
+
+void MyLevelInfoLayer::onBack(CCObject* sender) {
+    if (this->m_fields->forced)
+        return;
+
+    LevelInfoLayer::onBack(sender);
+}

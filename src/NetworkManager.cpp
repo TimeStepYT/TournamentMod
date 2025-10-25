@@ -3,8 +3,9 @@
 #include "../include/ConnectionLabel.hpp"
 
 const std::string getServerUrl() {
-    auto str = Mod::get()->getSettingValue<std::string>("server-url");
-    str = "ws://localhost:19992";
+    auto url = Mod::get()->getSettingValue<std::string>("server-url");
+    auto port = Mod::get()->getSettingValue<int64_t>("server-port");
+    auto str = fmt::format("ws://{}:{}", url, port);
     if (str.ends_with("/")) {
         if (str.empty()) {
             log::error("server URL is empty... uh oh");
@@ -113,9 +114,23 @@ void NetworkManager::disconnect() {
 
 void NetworkManager::tryReconnect(int delay) {
     std::this_thread::sleep_for(std::chrono::seconds(delay));
-    Loader::get()->queueInMainThread([]() {
+    Loader::get()->queueInMainThread([]() { // Doing this to prevent thread explosion
         NetworkManager::get().connect();
         });
+}
+
+void NetworkManager::login(std::string_view name) {
+    this->send(fmt::format("/login {}", name));
+    this->m_userName = name;
+}
+
+void NetworkManager::setUserName(std::string_view userName) {
+    MessageHandler::get().m_showedLoginMessage = false;
+    this->m_userName = userName;
+}
+
+std::optional<std::string> NetworkManager::getUserName() {
+    return this->m_userName;
 }
 
 void NetworkManager::onOpen(Handle hdl) {
@@ -128,7 +143,8 @@ void NetworkManager::onOpen(Handle hdl) {
             NetworkManager::get().m_connectionLabel->connectedChanged(true);
         }
     );
-    this->send("/login GD 0");
+    if (this->m_userName.has_value())
+        this->login(this->getUserName().value());
 }
 
 void NetworkManager::onClose(Handle hdl) {
@@ -137,15 +153,14 @@ void NetworkManager::onClose(Handle hdl) {
     auto connection = client.get_con_from_hdl(hdl);
     auto const localCode = connection->get_local_close_code();
     auto const remoteCode = connection->get_remote_close_code();
+    this->isLoggedIn = false;
     Loader::get()->queueInMainThread([]() {
         if (NetworkManager::get().m_connectionLabel)
             NetworkManager::get().m_connectionLabel->connectedChanged(false);
         }
     );
-    // log::info("oh we no longer connected! ({}/{})", localCode, remoteCode);
-    // log::info("because: {}/{}", connection->get_local_close_reason(), connection->get_remote_close_reason());
 
-    this->tryReconnect(3);
+    this->tryReconnect(0);
 }
 
 void NetworkManager::onFail(Handle hdl) {
@@ -161,7 +176,7 @@ void NetworkManager::onFail(Handle hdl) {
     );
     // log::info("FAIL. ({}/{})", localCode, remoteCode);
     // log::info("because: {}/{}", connection->get_local_close_reason(), connection->get_remote_close_reason());
-    this->tryReconnect(3);
+    this->tryReconnect(0);
 }
 
 void NetworkManager::onMessage(Handle hdl, Client::message_ptr msg) {

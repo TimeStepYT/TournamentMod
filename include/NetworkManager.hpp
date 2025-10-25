@@ -29,6 +29,8 @@ protected:
     std::mutex sendMutex;
     std::thread heartbeatThread;
 
+    std::optional<std::string> m_userName = std::nullopt;
+
     std::function<void()> connCallback = nullptr;
 
     void init();
@@ -48,17 +50,18 @@ public:
         return instance;
     }
 
-    std::atomic_bool isConnecting;
-    std::atomic_bool isConnected;
-    std::atomic_bool isRunning;
+    std::atomic_bool isConnecting = false;
+    std::atomic_bool isConnected = false;
+    std::atomic_bool isRunning = false;
+    std::atomic_bool isLoggedIn = false;
     ConnectionLabel* m_connectionLabel = nullptr;
 
     void connect();
     void connect(std::function<void()> callback);
-
     void disconnect();
-
     void close();
+    void setUserName(std::string_view);
+    std::optional<std::string> getUserName();
 
     void send(std::string const& msg) {
         std::lock_guard<std::mutex> lock(this->sendMutex);
@@ -67,4 +70,6 @@ public:
             log::error("no message sent :( {}", error.message());
         }
     }
+
+    void login(std::string_view);
 };
