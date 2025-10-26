@@ -14,7 +14,7 @@ void MyEndLevelLayer::showLayer(bool p0) {
     int id = this->m_playLayer->m_level->m_levelID;
 
     auto& nm = NetworkManager::get();
-    if (!nm.isConnected || !nm.isLoggedIn || !nm.m_levelID == id)
+    if (!nm.isConnected || !nm.isLoggedIn || nm.m_levelID != id)
         return;
 
     nm.send(fmt::format("/completed {}", id));
@@ -73,12 +73,28 @@ bool MyMenuLayer::init() {
 bool MyLevelInfoLayer::init(GJGameLevel* level, bool challenge) {
     if (!LevelInfoLayer::init(level, challenge)) return false;
 
-    int id = !NetworkManager::get().m_levelID;
+    int id = NetworkManager::get().m_levelID;
 
-    if (!this->m_fields->forced || id == this->m_level->m_levelID)
+    if (!this->m_fields->forced || id != this->m_level->m_levelID)
         return true;
 
+    auto children = this->getChildrenExt();
 
+    CCArrayExt<CCMenu> suspects;
+
+    for (auto child : children) {
+        auto menu = typeinfo_cast<CCMenu*>(child);
+
+        if (!menu)
+            continue;
+
+        if (menu->getChildrenCount() != 1)
+            continue;
+        
+        suspects.push_back(menu);
+    }
+
+    suspects[0]->setVisible(false);
 
     return true;
 }
