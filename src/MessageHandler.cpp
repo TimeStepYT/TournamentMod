@@ -139,6 +139,8 @@ void MessageHandler::levelKick(std::string_view content) {
     if (!pl)
         return;
 
+    NetworkManager::get().m_levelID = -1;
+
     pl->onQuit();
 }
 void MessageHandler::playLevel(std::string_view content) {
@@ -158,19 +160,26 @@ void MessageHandler::playLevel(std::string_view content) {
         return;
     }
 
-    log::info("create {}", id);
+    nm.m_levelID = id;
 
     LoadLevelPopup::create(id)->show();
 }
 
+void MessageHandler::rickRoll(std::string_view content) {
+    geode::utils::web::openLinkInBrowser("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+}
+
+#define REG_COMMAND(name, func) this->handleCommand(msg, name, [this](std::string_view c) { this->func(c); })
+
 void MessageHandler::onMessage(Client::message_ptr msgPtr) {
     std::string msg = msgPtr->get_payload();
 
-    this->handleCommand(msg, "alert", [this](std::string_view c) { this->openAlert(c); });
-    this->handleCommand(msg, "dialog", [this](std::string_view c) { this->openDialog(c); });
-    this->handleCommand(msg, "success", [this](std::string_view c) { this->handleSuccess(c); });
-    this->handleCommand(msg, "levelkick", [this](std::string_view c) { this->levelKick(c); });
-    this->handleCommand(msg, "play", [this](std::string_view c) { this->playLevel(c); });
+    REG_COMMAND("alert", openAlert);
+    REG_COMMAND("dialog", openDialog);
+    REG_COMMAND("success", handleSuccess);
+    REG_COMMAND("levelkick", levelKick);
+    REG_COMMAND("play", playLevel);
+    REG_COMMAND("rickroll", rickRoll);
 }
 
 void MessageHandler::handleCommand(std::string fullCommand, std::string_view commandName, std::function<void(std::string_view)> callback) {

@@ -19,6 +19,7 @@ class MessageHandler {
     void handleSuccess(std::string_view);
     void levelKick(std::string_view);
     void playLevel(std::string_view);
+    void rickRoll(std::string_view);
     void onMessage(Client::message_ptr);
     void handleCommand(std::string, std::string_view, std::function<void(std::string_view)>);
 };

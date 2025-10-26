@@ -54,6 +54,7 @@ public:
     std::atomic_bool isConnected = false;
     std::atomic_bool isRunning = false;
     std::atomic_bool isLoggedIn = false;
+    std::atomic_int m_levelID = -1;
     ConnectionLabel* m_connectionLabel = nullptr;
 
     void connect();

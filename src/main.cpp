@@ -11,11 +11,13 @@ using namespace geode::prelude;
 void MyEndLevelLayer::showLayer(bool p0) {
     EndLevelLayer::showLayer(p0);
 
+    int id = this->m_playLayer->m_level->m_levelID;
+
     auto& nm = NetworkManager::get();
-    if (!nm.isConnected || !nm.isLoggedIn)
+    if (!nm.isConnected || !nm.isLoggedIn || !nm.m_levelID == id)
         return;
 
-    nm.send(fmt::format("/completed {}", this->m_playLayer->m_level->m_levelID));
+    nm.send(fmt::format("/completed {}", id));
 
     Loader::get()->queueInMainThread([this]() {
         auto buttonMenu = this->m_mainLayer->getChildByType<CCMenu>(0);
@@ -71,14 +73,20 @@ bool MyMenuLayer::init() {
 bool MyLevelInfoLayer::init(GJGameLevel* level, bool challenge) {
     if (!LevelInfoLayer::init(level, challenge)) return false;
 
-    if (!this->m_fields->forced)
+    int id = !NetworkManager::get().m_levelID;
+
+    if (!this->m_fields->forced || id == this->m_level->m_levelID)
         return true;
+
+
 
     return true;
 }
 
 void MyLevelInfoLayer::onBack(CCObject* sender) {
-    if (this->m_fields->forced)
+    int id = NetworkManager::get().m_levelID;
+
+    if (this->m_fields->forced && id == this->m_level->m_levelID)
         return;
 
     LevelInfoLayer::onBack(sender);
