@@ -50,7 +50,9 @@ async def handleCommand(client: Client, msg: str, command: str, func: function, 
     if not alone:
         extrachar = " "
 
-    if not msg.startswith(command + extrachar):
+    cmd = msg.split(" ")
+
+    if not cmd[0] == command:
         return
     
     commandLength: int = len(command) + len(extrachar)
@@ -183,7 +185,7 @@ async def playLevel(client: Client, content: str):
         await client.sendErrorAlert("Missing permissions!")
         return
     
-    if len(content) < 3:
+    if len(content) == 0:
         await client.sendErrorAlert("No ID given")
         return
     
@@ -235,17 +237,17 @@ async def serverLoop(websocket):
     try:
         async for message in websocket:
             messageStr = str(message)
+            await handleCommand(client, messageStr, "/getclients", getClients, True)
+            await handleCommand(client, messageStr, "/exitlevels", exitLevels, True)
+            await handleCommand(client, messageStr, "/broadcast", broadcast)
+            await handleCommand(client, messageStr, "/completed", completed)
             await handleCommand(client, messageStr, "/register", register)
             await handleCommand(client, messageStr, "/login", login)
-            await handleCommand(client, messageStr, "/getclients", getClients, True)
-            await handleCommand(client, messageStr, "/ping", ping, True)
-            await handleCommand(client, messageStr, "/broadcast", broadcast)
-            await handleCommand(client, messageStr, "/to", toClient)
-            await handleCommand(client, messageStr, "/exit", exitCommand, True)
             await handleCommand(client, messageStr, "/auth", authCommand)
-            await handleCommand(client, messageStr, "/completed", completed)
+            await handleCommand(client, messageStr, "/ping", ping, True)
             await handleCommand(client, messageStr, "/play", playLevel)
-            await handleCommand(client, messageStr, "/exitLevels", exitLevels, True)
+            await handleCommand(client, messageStr, "/exit", exitCommand, True)
+            await handleCommand(client, messageStr, "/to", toClient)
     except Exception as e:
         print(e)
         Client.clients.discard(client)

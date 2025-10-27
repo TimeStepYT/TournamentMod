@@ -33,7 +33,7 @@ bool LoginPopup::setup() {
     auto nameNode = CCNode::create();
     nameNode->setLayout(inputLayout);
     auto nameLabel = CCLabelBMFont::create("Name", "bigFont.fnt");
-    auto nameInput = TextInput::create(100, "Name", "bigFont.fnt");
+    auto nameInput = TextInput::create(150, "Name", "bigFont.fnt");
     nameLabel->setScale(0.5f);
 
     nameNode->setContentWidth(nameInput->getContentWidth());

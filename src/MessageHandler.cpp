@@ -34,6 +34,12 @@ using namespace geode::prelude;
 //     return res;
 // }
 
+bool MessageHandler::isInt(std::string_view string) {
+    int value;
+    auto [ptr, ec] = std::from_chars(string.data(), string.data() + string.size(), value);
+    return ec == std::errc() && ptr == string.data() + string.size();
+}
+
 void MessageHandler::openAlert(std::string_view alertString) {
     std::array<std::string, 3> params;
 
@@ -95,22 +101,23 @@ void MessageHandler::openDialog(std::string_view dialogString) {
     else
         params[3] = "4";
 
-    try {
-        std::string const& bgStr = params[3];
-        std::string const& characterStr = params[2];
-        int bg = std::stoi(bgStr);
-        int character = std::stoi(characterStr);
+    std::string const& bgStr = params[3];
+    std::string const& characterStr = params[2];
 
-        if (bg < 0 || bg > 7 || character < 1 || character > 56) {
-            return;
-        }
+    if (!this->isInt(bgStr) || !this->isInt(characterStr))
+        return;
 
-        auto obj = DialogObject::create(params[0], params[1], character, 1.f, true, ccc3(255, 255, 255));
-        auto layer = DialogLayer::createDialogLayer(obj, nullptr, bg);
-        layer->animateInRandomSide();
-        layer->addToMainScene();
+    int bg = std::stoi(bgStr);
+    int character = std::stoi(characterStr);
+
+    if (bg < 0 || bg > 7 || character < 1 || character > 56) {
+        return;
     }
-    catch (...) {}
+
+    auto obj = DialogObject::create(params[0], params[1], character, 1.f, true, ccc3(255, 255, 255));
+    auto layer = DialogLayer::createDialogLayer(obj, nullptr, bg);
+    layer->animateInRandomSide();
+    layer->addToMainScene();
 }
 
 void MessageHandler::handleSuccess(std::string_view content) {
@@ -136,33 +143,107 @@ void MessageHandler::handleSuccess(std::string_view content) {
 void MessageHandler::levelKick(std::string_view content) {
     auto pl = PlayLayer::get();
 
+    auto& nm = NetworkManager::get();
+    nm.m_levelID = -1;
+
+
+    for (auto* lil : nm.m_levelInfoLayers) {
+        lil->levelIDChanged();
+    }
+
     if (!pl)
         return;
-
-    NetworkManager::get().m_levelID = -1;
 
     pl->onQuit();
 }
 void MessageHandler::playLevel(std::string_view content) {
-    this->levelKick(content);
+    bool wasPlaying = !!PlayLayer::get();
 
-    auto& nm = NetworkManager::get();
-    if (!nm.isConnected || !nm.isLoggedIn)
-        return;
+    std::string contentStr{ content };
 
-    int id = 0;
+    auto callback = [contentStr]() {
+        auto& nm = NetworkManager::get();
 
-    try {
-        id = std::stoi(std::string{ content });
+        if (!nm.isLoggedIn)
+            return;
+
+        if (!MessageHandler::isInt(contentStr)) {
+            log::info("Not an int apparently {}", contentStr);
+            return;
+        }
+
+        int id = 0;
+        id = std::stoi(std::string{ contentStr });
+
+        nm.m_levelID = id;
+
+        LoadLevelPopup::create(nm.m_levelID)->show();
+
+        for (auto* lil : nm.m_levelInfoLayers) {
+            lil->levelIDChanged();
+        }
+        };
+
+
+    if (wasPlaying) {
+        NetworkManager::get().m_openNextLevelQueue.push_back(callback);
+        this->levelKick(content);
     }
-    catch (...) {
-        log::info("Not an int apparently {}", content);
+    else {
+        callback();
+    }
+}
+
+void MessageHandler::openToast(std::string_view content) {
+    std::string contentStr{ content };
+
+    auto sanStr = geode::utils::string::replace(contentStr, "ö", "oe");
+    sanStr = geode::utils::string::replace(sanStr, "ä", "ae");
+    sanStr = geode::utils::string::replace(sanStr, "ü", "ue");
+    sanStr = geode::utils::string::replace(sanStr, "ß", "ss");
+    sanStr = geode::utils::string::replace(sanStr, "Ä", "AE");
+    sanStr = geode::utils::string::replace(sanStr, "Ü", "UE");
+    sanStr = geode::utils::string::replace(sanStr, "Ö", "OE");
+    sanStr = geode::utils::string::replace(sanStr, "ß", "ss");
+
+    auto params = geode::utils::string::split(sanStr, "~|~");
+
+    std::string const& text = params[0];
+
+    if (params.size() != 3 && params.size() != 1) {
         return;
     }
 
-    nm.m_levelID = id;
+    if (params.size() == 3) {
+        std::string const& isFromSheetStr = params[1];
+        std::string const& spriteName = params[2];
 
-    LoadLevelPopup::create(id)->show();
+        if (isFromSheetStr == "0" || isFromSheetStr == "1") {
+
+            bool isFromSheet = !!std::stoi(isFromSheetStr);
+
+            CCSprite* icon = nullptr;
+
+            auto spriteNameC = spriteName.c_str();
+
+            if (isFromSheet) {
+                icon = CCSprite::createWithSpriteFrameName(spriteNameC);
+            }
+            else {
+                icon = CCSprite::create(spriteNameC);
+            }
+
+            if (icon) {
+                geode::Notification::create(text, icon, 3.f)->show();
+                return;
+            }
+        }
+    }
+
+    auto notif = geode::Notification::create(text);
+    notif->setTime(3.f);
+    notif->show();
+    return;
 }
 
 void MessageHandler::rickRoll(std::string_view content) {
@@ -179,6 +260,7 @@ void MessageHandler::onMessage(Client::message_ptr msgPtr) {
     REG_COMMAND("success", handleSuccess);
     REG_COMMAND("levelkick", levelKick);
     REG_COMMAND("play", playLevel);
+    REG_COMMAND("toast", openToast);
     REG_COMMAND("rickroll", rickRoll);
 }
 

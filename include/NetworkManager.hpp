@@ -7,9 +7,11 @@
 #include <websocketpp/client.hpp>
 
 #include "ConnectionLabel.hpp"
+#include "hooks.hpp"
 
 #include <Geode/loader/Mod.hpp>
-using namespace geode;
+#include <Geode/utils/cocos.hpp>
+using namespace geode::prelude;
 
 using Client = websocketpp::client<websocketpp::config::asio_client>;
 using Handle = websocketpp::connection_hdl;
@@ -56,6 +58,8 @@ public:
     std::atomic_bool isLoggedIn = false;
     std::atomic_int m_levelID = -1;
     ConnectionLabel* m_connectionLabel = nullptr;
+    std::vector<MyLevelInfoLayer*> m_levelInfoLayers;
+    std::vector<std::function<void()>> m_openNextLevelQueue;
 
     void connect();
     void connect(std::function<void()> callback);

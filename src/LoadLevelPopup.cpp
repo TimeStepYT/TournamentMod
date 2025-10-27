@@ -64,14 +64,8 @@ void LoadLevelPopup::loadLevelsFinished(cocos2d::CCArray* levels, char const* p1
 
     GJGameLevel* level = static_cast<GJGameLevel*>(levels->objectAtIndex(0));
     auto lilScene = LevelInfoLayer::scene(level, false);
-    MyLevelInfoLayer* lil = static_cast<MyLevelInfoLayer*>(lilScene->getChildByType<LevelInfoLayer>(0));
-    
-    if (lil) {
-        lil->m_fields->forced = true;
-    }
-
     auto scene = cocos2d::CCTransitionFade::create(.5f, lilScene);
-    cocos2d::CCDirector::get()->pushScene(scene);
+    cocos2d::CCDirector::get()->replaceScene(scene);
     m_allowClose = true;
     Popup::onClose(nullptr);
 }
