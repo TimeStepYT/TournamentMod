@@ -2,18 +2,21 @@ import asyncio
 import sqlite3
 from websockets.asyncio.server import serve
 
-exiting = False
-port = 19992
 
-cx = sqlite3.connect("points.db")
-cursor = cx.cursor()
+class Session:
+    cx = sqlite3.connect("points.db")
+    cursor = cx.cursor()
+    exiting = False
+    port = 19992
+    completed: list[Client] = []
 
-cursor.execute("CREATE TABLE IF NOT EXISTS Users (name TEXT UNIQUE, displayName TEXT, points INTEGER, teamID INTEGER)")
-cx.commit()
-
+Session.cursor.execute("CREATE TABLE IF NOT EXISTS Users (name TEXT UNIQUE, displayName TEXT, points INTEGER, teamID INTEGER)")
+Session.cursor.execute("CREATE VIEW IF NOT EXISTS Teams AS SELECT teamID, SUM(points) AS points FROM Users GROUP BY teamID")
+Session.cx.commit()
+    
 class Client:
     lastClientID = 0
-    clients = set()
+    clients: set[Client] = set()
 
     def __init__(self, ws):
         self.websocket = ws
@@ -22,6 +25,7 @@ class Client:
         self.team = -1
         self.id = Client.lastClientID
         self.isAdmin = False
+        self.levelID = -1
 
         Client.lastClientID += 1
         Client.clients.add(self)
@@ -30,6 +34,14 @@ class Client:
     
     def setName(self, name):
         self.name = name
+
+    async def kickFromLevel(self):
+        await self.send("/levelkick")
+        self.levelID = -1
+
+    async def play(self, id: int):
+        await self.send(f"/play {id}")
+        self.levelID = id
     
     async def send(self, msg):
         await self.websocket.send(msg)
@@ -61,20 +73,28 @@ async def handleCommand(client: Client, msg: str, command: str, func: function, 
     await func(client, content)
 
 async def login(client: Client, content: str):
-    global cursor, cx
-
-    cursor.execute("SELECT * FROM Users WHERE name = ?", (content.lower(),))
-    userInfo = cursor.fetchone()
+    Session.cursor.execute("SELECT * FROM Users WHERE name = ?", (content.lower(),))
+    userInfo = Session.cursor.fetchone()
 
     if userInfo == None:
         await client.sendErrorAlert(f"<cr>\"{content}\"</c> hasn't been registered.\nPlease ask the organizer to register your username!")
         return
 
+    if client.name.lower() == content.lower():
+        await client.sendAlert("Info", "You're already playing!")
+        return
+
+    for cl in Client.clients:
+        if content.lower() == cl.name.lower():
+            await client.sendErrorAlert(f"<cr>{cl.name}</c> is already playing!")
+            return
+        
     client.name = content
     client.team = userInfo[3]
 
-    cursor.execute("UPDATE Users SET displayName = ?", (content,))
-    cx.commit()
+
+    Session.cursor.execute("UPDATE Users SET displayName = ? WHERE name = ?", (content, content.lower()))
+    Session.cx.commit()
 
     print(f"{content} (#{client.id}) logged in")
     await client.send("/success login")
@@ -169,16 +189,29 @@ async def exitCommand(client: Client, content: str):
     await client.websocket.close()
 
 async def completed(client: Client, content: str):
-    global cx, cursor
-    
     if client.team == -1:
         await client.sendErrorAlert("Points not updated because you're not logged in.")
         return
     
     print(f"{client.name} completed the level with ID {content}")
 
-    cursor.execute("UPDATE Users SET points = points + ? WHERE name = ?", (1, client.name.lower()))
-    cx.commit()
+    if client in Session.completed:
+        await client.sendErrorAlert("You already finished the level!")
+        return
+
+    playerCount = 0
+
+    for cl in Client.clients:
+        if cl.team != -1:
+            playerCount += 1
+
+    pointsEarned = playerCount - len(Session.completed)
+    pointsEarned *= 2
+
+    Session.completed.append(client)
+
+    Session.cursor.execute("UPDATE Users SET points = points + ? WHERE name = ?", (pointsEarned, client.name.lower()))
+    Session.cx.commit()
 
 async def playLevel(client: Client, content: str):
     if not client.isAdmin:
@@ -195,17 +228,22 @@ async def playLevel(client: Client, content: str):
         await client.sendErrorAlert("Invalid ID")
         return
 
-    await broadcast(client, f"/play {content}")
+    Session.completed.clear()
+
+    for cl in Client.clients:
+        await cl.play(int(content))
 
 async def exitLevels(client: Client, content: str):
     if not client.isAdmin:
         await client.sendErrorAlert("Missing permissions!")
         return
     
-    await broadcast(client, "/levelkick")
+    Session.completed.clear()
+
+    for cl in Client.clients:
+        await cl.kickFromLevel()
 
 async def register(client: Client, content: str):
-    global cursor, cx
     if not client.isAdmin:
         await client.sendErrorAlert("Missing permissions!")
         return
@@ -219,15 +257,15 @@ async def register(client: Client, content: str):
     name = params[0]
     teamID = params[1]
 
-    cursor.execute("SELECT * FROM Users WHERE name = ?", (name,))
-    userInfo = cursor.fetchone()
+    Session.cursor.execute("SELECT * FROM Users WHERE name = ?", (name,))
+    userInfo = Session.cursor.fetchone()
     
     if userInfo != None:
         await client.sendErrorAlert("User already registered.")
         return
 
-    cursor.execute("INSERT INTO Users VALUES (?, ?, ?, ?)", (name.lower(), name, 0, teamID))
-    cx.commit()
+    Session.cursor.execute("INSERT INTO Users VALUES (?, ?, ?, ?)", (name.lower(), name, 0, teamID))
+    Session.cx.commit()
 
     await client.send("/success")
 
@@ -255,11 +293,10 @@ async def serverLoop(websocket):
 
 
 async def main():
-    global exiting, port
-    while not exiting:
+    while not Session.exiting:
         try:
-            async with serve(serverLoop, "0.0.0.0", port) as server:
-                print("Serving on port", port)
+            async with serve(serverLoop, "0.0.0.0", Session.port) as server:
+                print("Serving on port", Session.port)
                 await server.serve_forever()
         except Exception as e:
             print(e)
@@ -271,4 +308,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        exiting = True
+        Session.exiting = True

@@ -125,7 +125,11 @@ void NetworkManager::login(std::string_view name) {
 }
 
 void NetworkManager::setUserName(std::string_view userName) {
-    MessageHandler::get().m_showedLoginMessage = false;
+    auto& mh = MessageHandler::get();
+    
+    if (this->m_userName != userName)
+        mh.m_showedLoginMessage = false;
+
     this->m_userName = userName;
 }
 

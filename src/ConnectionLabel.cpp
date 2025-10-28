@@ -25,7 +25,7 @@ void ConnectionLabel::connectedChanged(bool connected) {
             label->setColor(ccc3(255, 255, 0));
         }
         else {
-            label->setString("Connected");
+            label->setString("Change player");
             label->setColor(ccc3(0, 255, 0));
         }
     }

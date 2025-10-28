@@ -122,8 +122,9 @@ void MessageHandler::openDialog(std::string_view dialogString) {
 
 void MessageHandler::handleSuccess(std::string_view content) {
     if (content == "login") {
-        NetworkManager::get().isLoggedIn = true;
-        auto label = NetworkManager::get().m_connectionLabel;
+        auto& nm = NetworkManager::get();
+        nm.isLoggedIn = true;
+        auto label = nm.m_connectionLabel;
 
         label->connectedChanged(true);
 
@@ -134,7 +135,7 @@ void MessageHandler::handleSuccess(std::string_view content) {
 
         FLAlertLayer::create(
             "Success!",
-            fmt::format("Playing as <cg>{}</c>", NetworkManager::get().getUserName().value()),
+            fmt::format("Playing as <cg>{}</c>", nm.getUserName().value()),
             "OK"
         )->show();
     }

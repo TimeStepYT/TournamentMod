@@ -56,9 +56,9 @@ bool LoginPopup::setup() {
     doneButtonSprite->setScale(0.75f);
 
     auto doneButton = CCMenuItemSpriteExtra::create(doneButtonSprite, this, menu_selector(LoginPopup::onDone));
-    
+
     doneMenu->addChild(doneButton);
-    
+
     mainLayer->addChild(inputsNode);
     mainLayer->addChild(doneMenu);
 
@@ -68,8 +68,9 @@ bool LoginPopup::setup() {
 void LoginPopup::onDone(CCObject* sender) {
     auto name = this->m_nameInput->getString();
 
-    NetworkManager::get().setUserName(name);
-    NetworkManager::get().send(fmt::format("/login {}", name));
+    auto& nm = NetworkManager::get();
+    nm.setUserName(name);
+    nm.send(fmt::format("/login {}", name));
 
     this->onClose(sender);
 }
