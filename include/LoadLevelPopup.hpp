@@ -11,6 +11,8 @@ public:
     bool m_allowClose;
     unsigned int m_id;
 
+    inline static bool m_loading = false;
+
     void loadLevelsFinished(cocos2d::CCArray* levels, char const* p1, int p2);
     void loadLevelsFinished(cocos2d::CCArray* levels, char const* p1);
     void loadLevelsFailed(char const* p0, int p1);

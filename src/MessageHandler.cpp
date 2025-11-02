@@ -158,6 +158,9 @@ void MessageHandler::levelKick(std::string_view content) {
     pl->onQuit();
 }
 void MessageHandler::playLevel(std::string_view content) {
+    if (LoadLevelPopup::m_loading)
+        return;
+
     bool wasPlaying = !!PlayLayer::get();
 
     std::string contentStr{ content };

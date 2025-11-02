@@ -147,6 +147,7 @@ void NetworkManager::onOpen(Handle hdl) {
             NetworkManager::get().m_connectionLabel->connectedChanged(true);
         }
     );
+    this->send("/settype 0"); // I am a player!
     if (this->m_userName.has_value())
         this->login(this->getUserName().value());
 }

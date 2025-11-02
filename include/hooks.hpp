@@ -30,6 +30,7 @@ class $modify(MyLevelInfoLayer, LevelInfoLayer) {
     void onBack(CCObject* sender);
     void confirmDelete(CCObject* p0);
     void levelIDChanged();
+    void onEnterTransitionDidFinish() override;
 };
 
 class $modify(MyPlayLayer, PlayLayer) {

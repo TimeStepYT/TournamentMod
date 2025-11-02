@@ -9,13 +9,17 @@ LoadLevelPopup* LoadLevelPopup::create(unsigned int levelID) {
         return ret;
     }
 
+    ret = nullptr;
     delete ret;
+
     return nullptr;
 }
 
 bool LoadLevelPopup::setup(unsigned int levelID) {
+    m_loading = true;
     setTitle("Opening level");
     setID("LoadLevelPopup"_spr);
+
 
     m_id = levelID;
     m_allowClose = false;
@@ -58,7 +62,8 @@ void LoadLevelPopup::loadLevelsFinished(cocos2d::CCArray* levels, char const* p1
         geode::log::warn("zero levels found");
         geode::Notification::create(fmt::format("No level found with ID {}!", m_id), geode::NotificationIcon::Error)->show();
         m_allowClose = true;
-        Popup::onClose(nullptr);
+        m_loading = false;
+        this->onClose(nullptr);
         return;
     }
 
@@ -67,7 +72,7 @@ void LoadLevelPopup::loadLevelsFinished(cocos2d::CCArray* levels, char const* p1
     auto scene = cocos2d::CCTransitionFade::create(.5f, lilScene);
     cocos2d::CCDirector::get()->replaceScene(scene);
     m_allowClose = true;
-    Popup::onClose(nullptr);
+    this->onClose(nullptr);
 }
 
 void LoadLevelPopup::loadLevelsFinished(cocos2d::CCArray* levels, char const* p1) {
@@ -80,7 +85,8 @@ void LoadLevelPopup::loadLevelsFailed(char const* p0, int p1) {
     glm->m_levelManagerDelegate = nullptr;
     geode::Notification::create(fmt::format("No level found with ID {}!", m_id), geode::NotificationIcon::Error)->show();
     m_allowClose = true;
-    Popup::onClose(nullptr);
+    m_loading = false;
+    this->onClose(nullptr);
 }
 
 void LoadLevelPopup::loadLevelsFailed(char const* p0) {

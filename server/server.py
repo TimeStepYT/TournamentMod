@@ -2,6 +2,12 @@ import asyncio
 import sqlite3
 from websockets.asyncio.server import serve
 
+class Types:
+    Undefined = -1
+    Player = 0
+    PointsReader = 1
+    CommandLine = 2
+    TypeAmount = 3
 
 class Session:
     cx = sqlite3.connect("points.db")
@@ -9,6 +15,30 @@ class Session:
     exiting = False
     port = 19992
     completed: list[Client] = []
+    lastLevelID = -1
+
+    async def submitPoints(client: Client = None):
+        Session.cursor.execute("SELECT teamID, points FROM Teams")
+        usersInfo = Session.cursor.fetchall()
+
+        res = ""
+
+        for row in usersInfo:
+            if len(res) != 0:
+                res += "~~||~~"
+            displayName = row[0]
+            points = row[1]
+            res += f"{displayName}~|~{points}"
+
+        if client != None:
+            await client.send(f"/submitpoints {res}")
+            return
+
+        for cl in Client.clients:
+            if cl.type != Types.PointsReader:
+                continue
+
+            await cl.send(f"/submitpoints {res}")
 
 Session.cursor.execute("CREATE TABLE IF NOT EXISTS Users (name TEXT UNIQUE, displayName TEXT, points INTEGER, teamID INTEGER)")
 Session.cursor.execute("CREATE VIEW IF NOT EXISTS Teams AS SELECT teamID, SUM(points) AS points FROM Users GROUP BY teamID")
@@ -21,11 +51,12 @@ class Client:
     def __init__(self, ws):
         self.websocket = ws
         self.ip = ws.remote_address[0]
-        self.name = ""
-        self.team = -1
-        self.id = Client.lastClientID
-        self.isAdmin = False
-        self.levelID = -1
+        self.name: str = ""
+        self.team: int = -1
+        self.id: int = Client.lastClientID
+        self.isAdmin: bool = False
+        self.levelID: int = -1
+        self.type: int = Types.Undefined
 
         Client.lastClientID += 1
         Client.clients.add(self)
@@ -42,6 +73,15 @@ class Client:
     async def play(self, id: int):
         await self.send(f"/play {id}")
         self.levelID = id
+
+    async def setType(self, id: int):
+        self.type = id
+
+        if id == Types.Player and Session.lastLevelID != -1:
+            await self.play(Session.lastLevelID)
+        if id == Types.PointsReader:
+            await Session.submitPoints(self)
+                
     
     async def send(self, msg):
         await self.websocket.send(msg)
@@ -52,7 +92,10 @@ class Client:
         if button != None:
             additionalInfo = f"~|~{button}"
 
-        await self.send(f"/alert {title}~|~{message}{additionalInfo}")
+        if self.type == Types.Player:
+            await self.send(f"/alert {title}~|~{message}{additionalInfo}")
+        else:
+            await self.send(f"{title}: {message}")
     
     async def sendErrorAlert(self, content: str):
         await self.sendAlert("Error!", content)
@@ -91,7 +134,6 @@ async def login(client: Client, content: str):
         
     client.name = content
     client.team = userInfo[3]
-
 
     Session.cursor.execute("UPDATE Users SET displayName = ? WHERE name = ?", (content, content.lower()))
     Session.cx.commit()
@@ -189,6 +231,10 @@ async def exitCommand(client: Client, content: str):
     await client.websocket.close()
 
 async def completed(client: Client, content: str):
+    if client.type != Types.Player:
+        await client.sendErrorAlert("Your type is not \"player\"!")
+        return
+    
     if client.team == -1:
         await client.sendErrorAlert("Points not updated because you're not logged in.")
         return
@@ -202,7 +248,7 @@ async def completed(client: Client, content: str):
     playerCount = 0
 
     for cl in Client.clients:
-        if cl.team != -1:
+        if cl.team != -1 and cl.type == Types.Player:
             playerCount += 1
 
     pointsEarned = playerCount - len(Session.completed)
@@ -212,6 +258,8 @@ async def completed(client: Client, content: str):
 
     Session.cursor.execute("UPDATE Users SET points = points + ? WHERE name = ?", (pointsEarned, client.name.lower()))
     Session.cx.commit()
+
+    Session.submitPoints()
 
 async def playLevel(client: Client, content: str):
     if not client.isAdmin:
@@ -228,10 +276,13 @@ async def playLevel(client: Client, content: str):
         await client.sendErrorAlert("Invalid ID")
         return
 
+    id = int(content)
+
+    Session.lastLevelID = id
     Session.completed.clear()
 
     for cl in Client.clients:
-        await cl.play(int(content))
+        await cl.play(id)
 
 async def exitLevels(client: Client, content: str):
     if not client.isAdmin:
@@ -242,6 +293,27 @@ async def exitLevels(client: Client, content: str):
 
     for cl in Client.clients:
         await cl.kickFromLevel()
+
+async def setType(client: Client, content: str):
+    if content == "":
+        await client.sendErrorAlert("No type specified")
+        return
+    
+    try:
+        int(content)
+    except ValueError:
+        await client.sendErrorAlert("Parameter needs to be an ID")
+        return
+    
+    typeID = int(content)
+
+    if typeID < 0 or typeID >= Types.TypeAmount:
+        await client.sendErrorAlert("Invalid type ID")
+        return
+    
+    print(f"Setting type to {typeID}")
+    await client.setType(typeID)
+
 
 async def register(client: Client, content: str):
     if not client.isAdmin:
@@ -286,6 +358,7 @@ async def serverLoop(websocket):
             await handleCommand(client, messageStr, "/play", playLevel)
             await handleCommand(client, messageStr, "/exit", exitCommand, True)
             await handleCommand(client, messageStr, "/to", toClient)
+            await handleCommand(client, messageStr, "/settype", setType)
     except Exception as e:
         print(e)
         Client.clients.discard(client)

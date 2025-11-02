@@ -17,7 +17,8 @@ public:
             return ret;
         }
 
-        delete ret;
+        CC_SAFE_DELETE(ret);
+
         return nullptr;
     }
 };

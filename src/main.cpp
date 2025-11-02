@@ -4,6 +4,7 @@
 
 #include "../include/NetworkManager.hpp"
 #include "../include/ConnectionLabel.hpp"
+#include "../include/LoadLevelPopup.hpp"
 #include "../include/hooks.hpp"
 
 using namespace geode::prelude;
@@ -176,6 +177,11 @@ void MyLevelInfoLayer::levelIDChanged() {
 
         menu->setVisible(!onChosenLevel);
     }
+}
+
+void MyLevelInfoLayer::onEnterTransitionDidFinish() {
+    LevelInfoLayer::onEnterTransitionDidFinish();
+    LoadLevelPopup::m_loading = false;
 }
 
 MyLevelInfoLayer::Fields::~Fields() {

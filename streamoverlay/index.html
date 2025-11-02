@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Points viewer</title>
+</head>
+
+<body>
+    <div id="pointsTable"></div>
+
+    <script>
+        let ws = undefined
+        let heartbeat = undefined
+
+        function handleData(players) {
+            console.log("----")
+                for (let player of players) {
+                let row = player.split("~|~")
+
+                let teamID = row[0]
+                let points = row[1]
+                
+                console.log("Team", teamID + ":", points)
+            }
+        }
+
+        function connect() {
+            let ws = new WebSocket("ws://localhost:19992")
+
+            ws.onopen = () => {
+                if (heartbeat !== undefined)
+                    clearInterval(heartbeat)
+
+                heartbeat = setInterval(() => {
+                    ws.send("/ping")
+                }, 10000)
+
+                ws.send("/settype 1")
+            }
+            ws.onmessage = e => {
+                let msg = String(e.data)
+                let command = msg.split(" ")[0]
+
+                if (command !== "/submitpoints")
+                    return
+
+                let content = msg.slice(command.length + 1)
+
+                let players = content.split("~~||~~")
+
+                handleData(players)
+            }
+
+            ws.onclose = () => {
+                setTimeout(() => connect(), 1000)
+            }
+        }
+
+        connect()
+    </script>
+</body>
+
+</html>
