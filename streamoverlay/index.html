@@ -5,6 +5,31 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Points viewer</title>
+
+    <style>
+        body {
+            background-color: transparent;
+        }
+
+        #pointsTable {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .teamContainer {
+            /*background-color: lime;*/
+            width: 10rem;
+            text-align: center;
+            font-size: 2rem;
+            font-family: "Pusab", "Impact", "Bauhaus 93", sans-serif;
+            color: white;
+        }
+
+        .teamID::before {
+            content: "Team: "
+        }
+    </style>
 </head>
 
 <body>
@@ -14,16 +39,57 @@
         let ws = undefined
         let heartbeat = undefined
 
-        function handleData(players) {
-            console.log("----")
-                for (let player of players) {
-                let row = player.split("~|~")
+        let teams = []
 
-                let teamID = row[0]
-                let points = row[1]
-                
-                console.log("Team", teamID + ":", points)
+        class Team {
+            id = -1
+            points = 0
+
+            constructor(id, points) {
+                this.id = id
+                this.points = points
             }
+
+            isNew() {
+                for (let addedTeam of teams) {
+                    if (addedTeam.id === this.id)
+                        return false
+                }
+                return true
+            }
+
+            addToList() {
+                teams.push(this)
+            }
+
+            static update() {
+                let table = document.getElementById("pointsTable")
+                table.innerHTML = "" // clear
+
+                for (let team of teams) {
+                    table.innerHTML += '<div class="teamContainer"><div class="teamID">' + team.id + '</div><div class="points">' + team.points + '</div></div>'
+                }
+            }
+        }
+
+        function handleTeam(team) {
+            let row = team.split("~|~")
+
+            let teamID = row[0]
+            let points = row[1]
+
+            let newTeam = new Team(teamID, points)
+
+            if (newTeam.isNew())
+                newTeam.addToList()
+        }
+
+        function handleData(teams) {
+            for (let team of teams) {
+                handleTeam(team)
+            }
+
+            Team.update()
         }
 
         function connect() {
@@ -48,9 +114,9 @@
 
                 let content = msg.slice(command.length + 1)
 
-                let players = content.split("~~||~~")
+                let teams = content.split("~~||~~")
 
-                handleData(players)
+                handleData(teams)
             }
 
             ws.onclose = () => {

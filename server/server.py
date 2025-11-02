@@ -339,6 +339,8 @@ async def register(client: Client, content: str):
     Session.cursor.execute("INSERT INTO Users VALUES (?, ?, ?, ?)", (name.lower(), name, 0, teamID))
     Session.cx.commit()
 
+    await Session.submitPoints()
+
     await client.send("/success")
 
 
