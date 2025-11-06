@@ -10,12 +10,19 @@ public:
 
     bool init();
     void onClick(cocos2d::CCObject*);
-    CREATE_FUNC(ConnectionLabel);
+    static ConnectionLabel* create() {
+        auto res = new ConnectionLabel();
+        if (res && res->init()) {
+            res->autorelease();
+            return res;
+        }
+        CC_SAFE_DELETE(res);
+        return nullptr;
+    }
 
 protected:
     cocos2d::CCLabelBMFont* m_connectedLabel = nullptr;
     CCMenuItemSpriteExtra* m_loginButton = nullptr;
     bool m_connected = false;
-    std::mutex m_connectedChangedMutex;
     bool m_childAdded = false;
 };

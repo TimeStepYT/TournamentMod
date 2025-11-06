@@ -143,8 +143,9 @@ void NetworkManager::onOpen(Handle hdl) {
     isConnected = true;
     connCallback();
     Loader::get()->queueInMainThread([]() {
-        if (NetworkManager::get().m_connectionLabel)
-            NetworkManager::get().m_connectionLabel->connectedChanged(true);
+        auto label = NetworkManager::get().m_connectionLabel;
+        if (label)
+            label->connectedChanged(true);
         }
     );
     this->send("/settype 0"); // I am a player!
@@ -160,8 +161,9 @@ void NetworkManager::onClose(Handle hdl) {
     auto const remoteCode = connection->get_remote_close_code();
     this->isLoggedIn = false;
     Loader::get()->queueInMainThread([]() {
-        if (NetworkManager::get().m_connectionLabel)
-            NetworkManager::get().m_connectionLabel->connectedChanged(false);
+        auto label = NetworkManager::get().m_connectionLabel;
+        if (label)
+            label->connectedChanged(false);
         }
     );
 
@@ -175,8 +177,9 @@ void NetworkManager::onFail(Handle hdl) {
     auto const localCode = connection->get_local_close_code();
     auto const remoteCode = connection->get_remote_close_code();
     Loader::get()->queueInMainThread([]() {
-        if (NetworkManager::get().m_connectionLabel)
-            NetworkManager::get().m_connectionLabel->connectedChanged(false);
+        auto label = NetworkManager::get().m_connectionLabel;
+        if (label)
+            label->connectedChanged(false);
         }
     );
     // log::info("FAIL. ({}/{})", localCode, remoteCode);

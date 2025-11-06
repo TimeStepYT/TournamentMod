@@ -4,8 +4,10 @@
 
 using namespace geode::prelude;
 
+static std::mutex connectedChangedMutex;
+
 void ConnectionLabel::connectedChanged(bool connected) {
-    std::lock_guard<std::mutex> lock(this->m_connectedChangedMutex);
+    std::lock_guard<std::mutex> lock(connectedChangedMutex);
 
     auto& label = this->m_connectedLabel;
 

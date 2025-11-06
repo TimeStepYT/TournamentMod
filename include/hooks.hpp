@@ -6,6 +6,7 @@
 #include <Geode/modify/EndLevelLayer.hpp>
 #include <Geode/modify/MenuLayer.hpp>
 #include <Geode/modify/GameManager.hpp>
+#include <Geode/modify/PauseLayer.hpp>
 #include <Geode/modify/PlayLayer.hpp>
 
 class $modify(MyEndLevelLayer, EndLevelLayer) {
@@ -36,4 +37,8 @@ class $modify(MyLevelInfoLayer, LevelInfoLayer) {
 class $modify(MyPlayLayer, PlayLayer) {
     void onExit() override;
     void togglePracticeMode(bool practiceMode);
+};
+
+class $modify(TournamentPauseLayer, PauseLayer) {
+    void customSetup();
 };

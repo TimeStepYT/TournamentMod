@@ -216,3 +216,113 @@ void MyPlayLayer::togglePracticeMode(bool practiceMode) {
 
     PlayLayer::togglePracticeMode(practiceMode);
 }
+
+constexpr auto VERTEX_SHADER = R"(
+    attribute vec4 a_position;
+    attribute vec4 a_color;
+    attribute vec2 a_texCoord;
+
+    #ifdef GL_ES
+    varying lowp vec4 v_fragmentColor;
+    varying mediump vec2 v_texCoord;
+    #else
+    varying vec4 v_fragmentColor;
+    varying vec2 v_texCoord;
+    #endif
+
+    void main() {
+        gl_Position = CC_MVPMatrix * a_position;
+        v_fragmentColor = a_color;
+        v_texCoord = a_texCoord;
+    })";
+
+constexpr auto FRAGMENT_SHADER = R"(
+    #ifdef GL_ES
+    precision mediump float;
+    #endif
+
+    varying vec4 v_fragmentColor;
+    varying vec2 v_texCoord;
+    uniform sampler2D u_texture;
+
+    uniform vec3 u_lum;
+
+    void main(void) {
+        vec4 color = texture2D(u_texture, v_texCoord);
+        vec3 tintedColor = v_fragmentColor.rgb * color.rgb;
+        float gray = dot(tintedColor, u_lum);
+        float normalization = (v_fragmentColor.r + v_fragmentColor.g + v_fragmentColor.b) / 3.0;
+        gray /= normalization;  // Adjust for tint brightness
+        gl_FragColor = vec4(v_fragmentColor.rgb * vec3(gray), color.a * v_fragmentColor.a);
+    })";
+
+static CCGLProgram* getShader() {
+    auto ccsc = CCShaderCache::sharedShaderCache();
+    auto program = ccsc->programForKey("gradient-shader"_spr);
+
+    if (program)
+        return program;
+
+    auto vsh = VERTEX_SHADER;
+    auto fsh = FRAGMENT_SHADER;
+
+    program = new CCGLProgram();
+    program->initWithVertexShaderByteArray(vsh, fsh);
+    program->addAttribute("a_position", kCCVertexAttrib_Position);
+    program->addAttribute("a_texCoord", kCCVertexAttrib_TexCoords);
+    program->addAttribute("a_color", kCCVertexAttrib_Color);
+
+    if (!program->link()) {
+        log::error("Shader link failed!");
+        program->release();
+        return nullptr;
+    }
+
+    program->updateUniforms();
+
+    program->setUniformLocationWith3f(program->getUniformLocationForName("u_lum"),
+        0.299f, 0.587f, 0.114f);
+
+    ccsc->addProgram(program, "gradient-shader"_spr);
+    program->release();
+
+    return program;
+}
+
+void TournamentPauseLayer::customSetup() {
+    PauseLayer::customSetup();
+    int pausedLevelID = GameManager::get()->m_currentLevelID;
+
+    NodeIDs::provideFor(this);
+
+    auto& nm = NetworkManager::get();
+
+    if (!nm.isConnected || !nm.isLoggedIn || nm.m_levelID != pausedLevelID)
+        return;
+
+    auto centerButtonMenu = this->getChildByID("center-button-menu");
+    if (!centerButtonMenu)
+        return;
+
+    auto practiceButtonUncasted = centerButtonMenu->getChildByID("practice-button");
+    if (!practiceButtonUncasted)
+        return;
+
+    auto practiceButton = static_cast<CCMenuItemSpriteExtra*>(practiceButtonUncasted);
+
+    practiceButton->setEnabled(false);
+
+    Loader::get()->queueInMainThread([this]() {
+        auto globedPlayerListMenu = this->getChildByID("dankmeme.globed2/playerlist-menu");
+        if (!globedPlayerListMenu)
+            return;
+        globedPlayerListMenu->setVisible(false);
+        });
+
+    auto program = getShader();
+    if (!program)
+        return;
+
+    auto practiceButtonSprite = practiceButton->getChildByType<CCSprite>(0);
+    practiceButtonSprite->setShaderProgram(program);
+}

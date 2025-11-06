@@ -126,7 +126,8 @@ void MessageHandler::handleSuccess(std::string_view content) {
         nm.isLoggedIn = true;
         auto label = nm.m_connectionLabel;
 
-        label->connectedChanged(true);
+        if (label)
+            label->connectedChanged(true);
 
         if (this->m_showedLoginMessage)
             return;

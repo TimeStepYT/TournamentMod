@@ -37,6 +37,8 @@ class Session:
         for cl in Client.clients:
             if cl.type != Types.PointsReader:
                 continue
+            
+            print(f"Sent points to client {cl.id}")
 
             await cl.send(f"/submitpoints {res}")
 
@@ -99,6 +101,17 @@ class Client:
     
     async def sendErrorAlert(self, content: str):
         await self.sendAlert("Error!", content)
+
+async def forAllClients(func: function):
+    deleteQueue = []
+    for cl in Client.clients:
+        try:
+            await func(cl)
+        except:
+            deleteQueue.append(cl)
+
+    for cl in deleteQueue:
+        Client.clients.discard(cl)
 
 async def handleCommand(client: Client, msg: str, command: str, func: function, alone: bool = False):
     extrachar = ""
@@ -179,18 +192,16 @@ async def broadcast(client: Client, content: str):
         return
     
     print(content)
-    deleteQueue = []
-    for cl in Client.clients:
-        try:
-            if cl == client:
-                continue
-            
-            print(cl.ip)
-            await cl.send(content)
-        except Exception as e:
-            deleteQueue.append(cl)
-    for cl in deleteQueue:
-        Client.clients.discard(cl)
+
+    async def handleClient(cl):
+        if cl == client:
+            return
+        
+        print(cl.ip)
+        await cl.send(content)
+    
+    await forAllClients(handleClient)
+
 
 async def toClient(client: Client, content: str):
     if not client.isAdmin:
@@ -213,17 +224,14 @@ async def toClient(client: Client, content: str):
     command = params[1]
 
     print(f"{clientID} gets {command}")
-    deleteQueue = []
-    for cl in Client.clients:
-        try:
-            if cl.id != clientID:
-                continue
-            
-            await cl.send(command)
-        except Exception as e:
-            deleteQueue.append(cl)
-    for cl in deleteQueue:
-        Client.clients.discard(cl)
+
+    async def handleClient(cl):
+        if cl.id != clientID:
+            return
+        
+        await cl.send(command)
+
+    await forAllClients(handleClient)
 
 async def exitCommand(client: Client, content: str):
     print(f"ID {client.id} disconnected")
@@ -259,7 +267,7 @@ async def completed(client: Client, content: str):
     Session.cursor.execute("UPDATE Users SET points = points + ? WHERE name = ?", (pointsEarned, client.name.lower()))
     Session.cx.commit()
 
-    Session.submitPoints()
+    await Session.submitPoints()
 
 async def playLevel(client: Client, content: str):
     if not client.isAdmin:
@@ -281,8 +289,13 @@ async def playLevel(client: Client, content: str):
     Session.lastLevelID = id
     Session.completed.clear()
 
-    for cl in Client.clients:
-        await cl.play(id)
+    async def handleClient(cl: Client):
+        if cl.type == Types.Player:
+            await cl.play(id)
+        else:
+            await cl.sendAlert("Info", f"Players have been sent to {id}")
+
+    await forAllClients(handleClient)
 
 async def exitLevels(client: Client, content: str):
     if not client.isAdmin:
@@ -291,8 +304,7 @@ async def exitLevels(client: Client, content: str):
     
     Session.completed.clear()
 
-    for cl in Client.clients:
-        await cl.kickFromLevel()
+    await forAllClients(lambda cl: cl.kickFromLevel())
 
 async def setType(client: Client, content: str):
     if content == "":
